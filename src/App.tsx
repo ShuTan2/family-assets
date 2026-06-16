@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+const basename = process.env.NODE_ENV === 'production' ? '/family-assets' : '/';
 import { Home } from './pages/Home';
 import { DepositList } from './pages/DepositList';
 import { AddEditDeposit } from './pages/AddEditDeposit';
@@ -10,7 +12,7 @@ import { TabBar } from './components/TabBar';
 
 export default function App() {
   return (
-    <Router>
+    <Router basename={basename}>
       <div className="min-h-screen bg-[#F8F9FA]">
         <Routes>
           <Route path="/" element={<Home />} />
