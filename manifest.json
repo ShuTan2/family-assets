@@ -1,0 +1,20 @@
+{
+  "name": "家庭资产记账",
+  "short_name": "资产记账",
+  "description": "管理您的家庭银行存款和定期存款",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F8F9FA",
+  "theme_color": "#1E3A5F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "zh-CN",
+  "categories": ["finance", "productivity"]
+}
