@@ -1,25 +1,59 @@
-import { User, Settings, HelpCircle, Download, Upload, Trash2, Info } from 'lucide-react';
+import { useState } from 'react';
+import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen } from 'lucide-react';
 import { useDepositStore } from '../hooks/useDeposits';
 import { formatCurrency } from '../utils/calculations';
 
 export function Profile() {
   const { deposits, loadDeposits } = useDepositStore();
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportInfo, setExportInfo] = useState<{ filename: string; content: string; size: number } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const totalAmount = deposits.reduce((sum, d) => sum + d.amount, 0);
   const totalExpectedReturn = deposits.reduce((sum, d) => sum + d.expectedReturn, 0);
 
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   const handleExportData = () => {
     const dataStr = JSON.stringify(deposits, null, 2);
+    const filename = `family_assets_backup_${new Date().toISOString().split('T')[0]}.json`;
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `family_assets_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    alert('数据已导出');
+
+    setExportInfo({ filename, content: dataStr, size: blob.size });
+    setShowExportModal(true);
+  };
+
+  const handleCopyContent = async () => {
+    if (exportInfo) {
+      try {
+        await navigator.clipboard.writeText(exportInfo.content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        const textarea = document.createElement('textarea');
+        textarea.value = exportInfo.content;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
   const handleImportData = () => {
@@ -156,6 +190,111 @@ export function Profile() {
           </p>
         </div>
       </div>
+
+      {showExportModal && exportInfo && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-[#27AE60] bg-opacity-10 flex items-center justify-center">
+                  <Check className="w-5 h-5 text-[#27AE60]" />
+                </div>
+                <h3 className="text-base font-semibold text-[#2C3E50]">导出成功</h3>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 overflow-y-auto flex-1">
+              <div className="bg-gradient-to-br from-[#F8F9FA] to-[#EFF2F5] rounded-xl p-4 border border-gray-100">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <FileText className="w-5 h-5 text-[#4A90D9]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#2C3E50] truncate">{exportInfo.filename}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">JSON 格式 · {formatFileSize(exportInfo.size)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 bg-[#FFF8E1] border border-[#FFE082] rounded-xl p-3">
+                <div className="flex gap-2">
+                  <FolderOpen className="w-4 h-4 text-[#F57C00] flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-[#5D4037] leading-relaxed">
+                    {isMobile ? (
+                      <>
+                        <p className="font-medium mb-1">📱 文件已保存到手机</p>
+                        <p>iPhone：进入「文件」App → 「下载」文件夹查找</p>
+                        <p>安卓：进入「文件管理」/「下载」文件夹查找</p>
+                        <p className="mt-1 text-[#F57C00]">💡 如果没找到，浏览器可能会让你选择保存位置</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium mb-1">💻 文件已下载到电脑</p>
+                        <p>默认保存到「下载」文件夹</p>
+                        <p className="mt-1 text-[#F57C00]">💡 浏览器下载列表中也可以找到</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-xs text-gray-500 mb-2">数据预览（前 200 字符）：</p>
+                <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto border border-gray-100">
+                  <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap break-all">
+                    {exportInfo.content.substring(0, 200)}
+                    {exportInfo.content.length > 200 && '...'}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={handleCopyContent}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#2C3E50] rounded-xl text-sm font-medium transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-[#27AE60]" />
+                    <span>已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>复制内容</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  if (exportInfo) {
+                    const blob = new Blob([exportInfo.content], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = exportInfo.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#1E3A5F] hover:bg-[#2C5282] text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                <span>重新下载</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
