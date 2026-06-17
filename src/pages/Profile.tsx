@@ -1,21 +1,44 @@
 import { useState } from 'react';
-import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen } from 'lucide-react';
+import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen, Landmark, Wallet, Tags } from 'lucide-react';
 import { useDepositStore } from '../hooks/useDeposits';
+import { useExpenseStore } from '../hooks/useExpenses';
 import { formatCurrency } from '../utils/calculations';
+
+const DEPOSITS_KEY = 'family_assets_deposits';
+const EXPENSES_KEY = 'family_assets_expenses';
+const EXPENSE_TAGS_KEY = 'family_assets_expense_tags';
 
 export function Profile() {
   const { deposits, loadDeposits } = useDepositStore();
+  const { expenses, tags, loadExpenses, loadTags } = useExpenseStore();
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportInfo, setExportInfo] = useState<{ filename: string; content: string; size: number } | null>(null);
+  const [exportInfo, setExportInfo] = useState<{
+    filename: string;
+    content: string;
+    size: number;
+    depositCount: number;
+    expenseCount: number;
+    tagCount: number;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const totalAmount = deposits.reduce((sum, d) => sum + d.amount, 0);
   const totalExpectedReturn = deposits.reduce((sum, d) => sum + d.expectedReturn, 0);
+  const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const customTagCount = tags.filter((t) => !t.isSystem).length;
 
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const handleExportData = () => {
-    const dataStr = JSON.stringify(deposits, null, 2);
+    const customTags = tags.filter((t) => !t.isSystem);
+    const backupData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      deposits: deposits,
+      expenses: expenses,
+      expenseTags: customTags,
+    };
+    const dataStr = JSON.stringify(backupData, null, 2);
     const filename = `family_assets_backup_${new Date().toISOString().split('T')[0]}.json`;
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -27,7 +50,14 @@ export function Profile() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    setExportInfo({ filename, content: dataStr, size: blob.size });
+    setExportInfo({
+      filename,
+      content: dataStr,
+      size: blob.size,
+      depositCount: deposits.length,
+      expenseCount: expenses.length,
+      tagCount: customTags.length,
+    });
     setShowExportModal(true);
   };
 
@@ -67,15 +97,44 @@ export function Profile() {
         reader.onload = (event) => {
           try {
             const importedData = JSON.parse(event.target?.result as string);
-            if (Array.isArray(importedData)) {
-              localStorage.setItem('family_assets_deposits', JSON.stringify(importedData));
+
+            // 新格式：包含 deposits, expenses, expenseTags 的对象
+            if (!Array.isArray(importedData) && typeof importedData === 'object' && importedData !== null) {
+              const { deposits, expenses, expenseTags } = importedData;
+              if (Array.isArray(deposits)) {
+                localStorage.setItem(DEPOSITS_KEY, JSON.stringify(deposits));
+                loadDeposits();
+              }
+              if (Array.isArray(expenses)) {
+                localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+                loadExpenses();
+              }
+              if (Array.isArray(expenseTags)) {
+                const existingTags = tags.filter((t) => !t.isSystem);
+                const mergedTags = [...existingTags];
+                expenseTags.forEach((t) => {
+                  if (!mergedTags.find((m) => m.id === t.id)) {
+                    mergedTags.push(t);
+                  }
+                });
+                localStorage.setItem(EXPENSE_TAGS_KEY, JSON.stringify(mergedTags));
+                loadTags();
+              }
+              const importedCounts: string[] = [];
+              if (Array.isArray(deposits) && deposits.length > 0) importedCounts.push(`存款 ${deposits.length} 条`);
+              if (Array.isArray(expenses) && expenses.length > 0) importedCounts.push(`支出 ${expenses.length} 条`);
+              if (Array.isArray(expenseTags) && expenseTags.length > 0) importedCounts.push(`自定义标签 ${expenseTags.length} 个`);
+              alert(`导入成功！${importedCounts.join('，')}`);
+            } else if (Array.isArray(importedData)) {
+              // 兼容旧格式：只有存款数组
+              localStorage.setItem(DEPOSITS_KEY, JSON.stringify(importedData));
               loadDeposits();
-              alert('数据导入成功');
+              alert(`导入成功！存款 ${importedData.length} 条（旧格式，仅含存款）`);
             } else {
               alert('无效的数据格式');
             }
           } catch {
-            alert('数据解析失败');
+            alert('数据解析失败，请确认文件是有效的 JSON 备份');
           }
         };
         reader.readAsText(file);
@@ -85,9 +144,13 @@ export function Profile() {
   };
 
   const handleClearAll = () => {
-    if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
-      localStorage.removeItem('family_assets_deposits');
+    if (confirm('确定要清空所有数据吗？存款、支出、自定义标签都将被删除，此操作不可恢复！')) {
+      localStorage.removeItem(DEPOSITS_KEY);
+      localStorage.removeItem(EXPENSES_KEY);
+      localStorage.removeItem(EXPENSE_TAGS_KEY);
       loadDeposits();
+      loadExpenses();
+      loadTags();
       alert('所有数据已清空');
     }
   };
@@ -113,14 +176,18 @@ export function Profile() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="bg-white bg-opacity-20 rounded-xl p-4 backdrop-blur-sm">
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
             <p className="text-xs text-blue-200 mb-1">资产总额</p>
-            <p className="text-xl font-bold">{formatCurrency(totalAmount)}</p>
+            <p className="text-lg font-bold">{formatCurrency(totalAmount)}</p>
           </div>
-          <div className="bg-white bg-opacity-20 rounded-xl p-4 backdrop-blur-sm">
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
             <p className="text-xs text-blue-200 mb-1">累计收益</p>
-            <p className="text-xl font-bold text-[#D4AF37]">+{formatCurrency(totalExpectedReturn)}</p>
+            <p className="text-lg font-bold text-[#D4AF37]">+{formatCurrency(totalExpectedReturn)}</p>
+          </div>
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
+            <p className="text-xs text-blue-200 mb-1">累计支出</p>
+            <p className="text-lg font-bold text-[#F87171]">-{formatCurrency(totalExpense)}</p>
           </div>
         </div>
       </header>
@@ -161,24 +228,44 @@ export function Profile() {
           </div>
         </div>
 
-        <div className="mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">数据统计</h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">存款笔数</span>
-              <span className="text-sm font-medium text-[#2C3E50]">{deposits.length}笔</span>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">存款</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">笔数</span>
+                <span className="text-sm font-semibold text-[#1E3A5F]">{deposits.length}笔</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">定期</span>
+                <span className="text-sm font-medium text-[#2C3E50]">
+                  {deposits.filter((d) => d.type === 'fixed').length}笔
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">活期</span>
+                <span className="text-sm font-medium text-[#2C3E50]">
+                  {deposits.filter((d) => d.type === 'current').length}笔
+                </span>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">定期存款</span>
-              <span className="text-sm font-medium text-[#2C3E50]">
-                {deposits.filter((d) => d.type === 'fixed').length}笔
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">活期存款</span>
-              <span className="text-sm font-medium text-[#2C3E50]">
-                {deposits.filter((d) => d.type === 'current').length}笔
-              </span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">支出</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">笔数</span>
+                <span className="text-sm font-semibold text-[#1E3A5F]">{expenses.length}笔</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">累计金额</span>
+                <span className="text-sm font-medium text-[#F87171]">{formatCurrency(totalExpense)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">自定义标签</span>
+                <span className="text-sm font-medium text-[#2C3E50]">{customTagCount}个</span>
+              </div>
             </div>
           </div>
         </div>
@@ -186,7 +273,7 @@ export function Profile() {
         <div className="mt-4 bg-gradient-to-r from-[#D4AF37] to-[#F4D03F] rounded-2xl p-4 text-white">
           <p className="text-sm opacity-90 mb-1">温馨提示</p>
           <p className="text-xs opacity-80 leading-relaxed">
-            您的数据存储在浏览器本地，建议定期导出备份。清空浏览器数据会导致存款记录丢失。
+            您的数据（存款、支出、自定义标签）全部存储在浏览器本地，建议每周点击"导出数据"备份一次。更换设备或清空浏览器数据会导致记录丢失。
           </p>
         </div>
       </div>
@@ -219,6 +306,30 @@ export function Profile() {
                     <p className="text-sm font-medium text-[#2C3E50] truncate">{exportInfo.filename}</p>
                     <p className="text-xs text-gray-500 mt-0.5">JSON 格式 · {formatFileSize(exportInfo.size)}</p>
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
+                  <div className="w-8 h-8 mx-auto mb-2 rounded-lg bg-[#4A90D9] bg-opacity-10 flex items-center justify-center">
+                    <Landmark className="w-4 h-4 text-[#4A90D9]" />
+                  </div>
+                  <p className="text-lg font-bold text-[#1E3A5F]">{exportInfo.depositCount}</p>
+                  <p className="text-xs text-gray-500">存款</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
+                  <div className="w-8 h-8 mx-auto mb-2 rounded-lg bg-[#F87171] bg-opacity-10 flex items-center justify-center">
+                    <Wallet className="w-4 h-4 text-[#F87171]" />
+                  </div>
+                  <p className="text-lg font-bold text-[#1E3A5F]">{exportInfo.expenseCount}</p>
+                  <p className="text-xs text-gray-500">支出</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
+                  <div className="w-8 h-8 mx-auto mb-2 rounded-lg bg-[#8B5CF6] bg-opacity-10 flex items-center justify-center">
+                    <Tags className="w-4 h-4 text-[#8B5CF6]" />
+                  </div>
+                  <p className="text-lg font-bold text-[#1E3A5F]">{exportInfo.tagCount}</p>
+                  <p className="text-xs text-gray-500">标签</p>
                 </div>
               </div>
 
