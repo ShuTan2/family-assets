@@ -9,7 +9,7 @@ const EXPENSES_KEY = 'family_assets_expenses';
 const EXPENSE_TAGS_KEY = 'family_assets_expense_tags';
 
 export function Profile() {
-  const { deposits, loadDeposits } = useDepositStore();
+  const { deposits, loadDeposits, getStatistics } = useDepositStore();
   const { expenses, tags, loadExpenses, loadTags } = useExpenseStore();
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportInfo, setExportInfo] = useState<{
@@ -22,8 +22,10 @@ export function Profile() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const totalAmount = deposits.reduce((sum, d) => sum + d.amount, 0);
-  const totalExpectedReturn = deposits.reduce((sum, d) => sum + d.expectedReturn, 0);
+  const stats = getStatistics();
+  const totalAmount = stats.totalAssets;
+  const historicalReturn = stats.historicalReturn;
+  const totalExpectedReturn = stats.totalExpectedReturn;
   const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
   const customTagCount = tags.filter((t) => !t.isSystem).length;
 
@@ -182,8 +184,8 @@ export function Profile() {
             <p className="text-lg sm:text-xl font-bold truncate">{formatCurrencyCompact(totalAmount)}</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm min-w-0">
-            <p className="text-xs text-blue-200 mb-1">累计收益</p>
-            <p className="text-lg sm:text-xl font-bold text-[#D4AF37] truncate">+{formatCurrencyCompact(totalExpectedReturn)}</p>
+            <p className="text-xs text-blue-200 mb-1">历史累计收益</p>
+            <p className="text-lg sm:text-xl font-bold text-[#D4AF37] truncate">+{formatCurrencyCompact(historicalReturn)}</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm min-w-0">
             <p className="text-xs text-blue-200 mb-1">累计支出</p>
@@ -248,6 +250,10 @@ export function Profile() {
                   {deposits.filter((d) => d.type === 'current').length}笔
                 </span>
               </div>
+              <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                <span className="text-xs text-gray-500">预计总收益</span>
+                <span className="text-sm font-medium text-[#D4AF37]">{formatCurrencyCompact(totalExpectedReturn)}</span>
+              </div>
             </div>
           </div>
 
@@ -260,7 +266,7 @@ export function Profile() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">累计金额</span>
-                <span className="text-sm font-medium text-[#F87171]">{formatCurrency(totalExpense)}</span>
+                <span className="text-sm font-medium text-[#F87171]">{formatCurrencyCompact(totalExpense)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">自定义标签</span>
