@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen, Landmark, Wallet, Tags } from 'lucide-react';
 import { useDepositStore } from '../hooks/useDeposits';
 import { useExpenseStore } from '../hooks/useExpenses';
-import { formatCurrency } from '../utils/calculations';
+import { formatCurrency, formatCurrencyCompact } from '../utils/calculations';
 
 const DEPOSITS_KEY = 'family_assets_deposits';
 const EXPENSES_KEY = 'family_assets_expenses';
@@ -177,17 +177,17 @@ export function Profile() {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm min-w-0">
             <p className="text-xs text-blue-200 mb-1">资产总额</p>
-            <p className="text-lg font-bold">{formatCurrency(totalAmount)}</p>
+            <p className="text-lg sm:text-xl font-bold truncate">{formatCurrencyCompact(totalAmount)}</p>
           </div>
-          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm min-w-0">
             <p className="text-xs text-blue-200 mb-1">累计收益</p>
-            <p className="text-lg font-bold text-[#D4AF37]">+{formatCurrency(totalExpectedReturn)}</p>
+            <p className="text-lg sm:text-xl font-bold text-[#D4AF37] truncate">+{formatCurrencyCompact(totalExpectedReturn)}</p>
           </div>
-          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm">
+          <div className="bg-white bg-opacity-20 rounded-xl p-3 backdrop-blur-sm min-w-0">
             <p className="text-xs text-blue-200 mb-1">累计支出</p>
-            <p className="text-lg font-bold text-[#F87171]">-{formatCurrency(totalExpense)}</p>
+            <p className="text-lg sm:text-xl font-bold text-[#F87171] truncate">-{formatCurrencyCompact(totalExpense)}</p>
           </div>
         </div>
       </header>

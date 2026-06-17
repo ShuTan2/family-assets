@@ -142,6 +142,16 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function formatCurrencyCompact(amount: number): string {
+  if (amount >= 100000000) {
+    return `¥${(amount / 100000000).toFixed(2)}亿`;
+  }
+  if (amount >= 10000) {
+    return `¥${(amount / 10000).toFixed(1)}万`;
+  }
+  return formatCurrency(amount);
+}
+
 export function formatDate(dateStr: string): string {
   return dayjs(dateStr).format('YYYY-MM-DD');
 }
