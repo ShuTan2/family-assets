@@ -136,17 +136,21 @@ export function ExpenseList() {
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full appearance-none bg-gradient-to-r from-[#4A90D9] to-[#2C5282] text-white text-sm font-semibold py-2 pl-3 pr-8 rounded-xl text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4A90D9] focus:ring-offset-1"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  aria-label="选择月份"
                 >
-                  <option value="all" className="text-gray-800 bg-white">全部时间</option>
+                  <option value="all">全部时间</option>
                   {availableMonths.map((m) => (
-                    <option key={m} value={m} className="text-gray-800 bg-white">
+                    <option key={m} value={m}>
                       {dayjs(m + '-01').format('YYYY年M月')}
                       {m === dayjs().format('YYYY-MM') ? '（当月）' : ''}
                     </option>
                   ))}
                 </select>
-                <ChevronRight className="w-4 h-4 text-white absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                <div className="bg-gradient-to-r from-[#4A90D9] to-[#2C5282] text-white text-sm font-semibold py-2 px-3 rounded-xl text-center flex items-center justify-center gap-1 pointer-events-none">
+                  <span className="truncate">{currentMonthLabel}</span>
+                  <ChevronRight className="w-3.5 h-3.5 rotate-90 flex-shrink-0" />
+                </div>
               </div>
             </div>
 
