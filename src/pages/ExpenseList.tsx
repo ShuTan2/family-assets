@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingDown } from 'lucide-react';
+import { Plus, TrendingDown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import dayjs from 'dayjs';
 import { useExpenseStore } from '../hooks/useExpenses';
 import { ExpenseItem } from '../components/ExpenseItem';
@@ -17,6 +17,7 @@ interface GroupedExpenses {
 export function ExpenseList() {
   const navigate = useNavigate();
   const { expenses, tags, loadExpenses, loadTags, deleteExpense, getTagById } = useExpenseStore();
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => dayjs().format('YYYY-MM')); // 'all' 表示全部
 
   useEffect(() => {
     loadExpenses();
@@ -25,15 +26,20 @@ export function ExpenseList() {
 
   const stats = useMemo(() => calculateExpenseStatistics(expenses), [expenses]);
 
-  const currentMonthExpenses = useMemo(() => {
-    const currentMonthStr = dayjs().format('YYYY-MM');
-    return expenses.filter((e) => dayjs(e.date).format('YYYY-MM') === currentMonthStr);
-  }, [expenses]);
+  // 根据选中的月份过滤支出
+  const filteredExpenses = useMemo(() => {
+    if (selectedMonth === 'all') return expenses;
+    return expenses.filter((e) => dayjs(e.date).format('YYYY-MM') === selectedMonth);
+  }, [expenses, selectedMonth]);
 
-  const pieChartData = useMemo(() => getTagExpenseDistribution(currentMonthExpenses), [currentMonthExpenses]);
+  const isAll = selectedMonth === 'all';
+  const isCurrentMonth = selectedMonth === dayjs().format('YYYY-MM');
+  const currentMonthLabel = isAll ? '全部时间' : dayjs(selectedMonth + '-01').format('YYYY年M月');
+
+  const pieChartData = useMemo(() => getTagExpenseDistribution(filteredExpenses), [filteredExpenses]);
 
   const groupedExpenses = useMemo<GroupedExpenses[]>(() => {
-    const sorted = [...expenses].sort((a, b) => {
+    const sorted = [...filteredExpenses].sort((a, b) => {
       if (a.date === b.date) {
         return (b.createdAt || '').localeCompare(a.createdAt || '');
       }
@@ -64,6 +70,27 @@ export function ExpenseList() {
     });
 
     return Array.from(groupMap.values());
+  }, [filteredExpenses]);
+
+  const handlePrevMonth = () => {
+    if (isAll) {
+      setSelectedMonth(dayjs().format('YYYY-MM'));
+      return;
+    }
+    setSelectedMonth(dayjs(selectedMonth + '-01').subtract(1, 'month').format('YYYY-MM'));
+  };
+
+  const handleNextMonth = () => {
+    if (isAll) return;
+    setSelectedMonth(dayjs(selectedMonth + '-01').add(1, 'month').format('YYYY-MM'));
+  };
+
+  // 收集所有有支出的月份 + 当月
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    set.add(dayjs().format('YYYY-MM'));
+    expenses.forEach((e) => set.add(dayjs(e.date).format('YYYY-MM')));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [expenses]);
 
   const handleEdit = (id: string) => {
@@ -78,18 +105,66 @@ export function ExpenseList() {
 
   const hasAnyExpense = expenses.length > 0;
 
-  const currentMonthLabel = dayjs().format('YYYY年M月');
-  const daysInMonth = dayjs().daysInMonth();
-  const averageDaily = currentMonthExpenses.length > 0 ? stats.monthlyExpense / daysInMonth : 0;
+  const filteredTotal = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const daysInMonth = isAll ? Math.max(1, dayjs().date()) : dayjs(selectedMonth + '-01').daysInMonth();
+  const averageDaily = filteredExpenses.length > 0 ? filteredTotal / (isAll ? Math.max(1, dayjs().date()) : daysInMonth) : 0;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-28">
       <header className="bg-white px-4 py-4 border-b border-gray-100">
         <h1 className="text-lg font-semibold text-[#2C3E50]">支出记录</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          {currentMonthLabel} · 共 {expenses.length} 条记录
+          {currentMonthLabel} · 共 {filteredExpenses.length} 条记录
         </p>
       </header>
+
+      {/* 年月选择器 */}
+      {hasAnyExpense && (
+        <div className="bg-white px-4 py-3 border-b border-gray-100 sticky top-0 z-10">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handlePrevMonth}
+              className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              aria-label="上个月"
+            >
+              <ChevronLeft className="w-5 h-5 text-[#2C3E50]" />
+            </button>
+
+            <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+              <Calendar className="w-4 h-4 text-[#4A90D9] flex-shrink-0" />
+              <div className="relative flex-1 max-w-[200px]">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full appearance-none bg-gradient-to-r from-[#4A90D9] to-[#2C5282] text-white text-sm font-semibold py-2 pl-3 pr-8 rounded-xl text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4A90D9] focus:ring-offset-1"
+                >
+                  <option value="all" className="text-gray-800 bg-white">全部时间</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m} className="text-gray-800 bg-white">
+                      {dayjs(m + '-01').format('YYYY年M月')}
+                      {m === dayjs().format('YYYY-MM') ? '（当月）' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronRight className="w-4 h-4 text-white absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+              </div>
+            </div>
+
+            <button
+              onClick={handleNextMonth}
+              disabled={isAll || isCurrentMonth}
+              className={`p-2 rounded-lg transition-colors ${
+                isAll || isCurrentMonth
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'hover:bg-gray-100 active:bg-gray-200 text-[#2C3E50]'
+              }`}
+              aria-label="下个月"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {!hasAnyExpense ? (
         <div className="text-center py-12 px-4">
@@ -105,6 +180,20 @@ export function ExpenseList() {
             添加支出
           </button>
         </div>
+      ) : filteredExpenses.length === 0 ? (
+        <div className="text-center py-12 px-4">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+            <Calendar className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-[#2C3E50] mb-2">{currentMonthLabel}暂无支出</h3>
+          <p className="text-sm text-gray-500 mb-4">切换到其他月份查看记录</p>
+          <button
+            onClick={() => setSelectedMonth(dayjs().format('YYYY-MM'))}
+            className="px-6 py-2.5 bg-[#4A90D9] text-white rounded-xl font-medium text-sm"
+          >
+            回到当月
+          </button>
+        </div>
       ) : (
         <div className="px-4 py-4 space-y-4">
           <div className="bg-gradient-to-br from-[#1E3A5F] to-[#4A90D9] rounded-2xl p-4 text-white shadow-sm">
@@ -112,20 +201,20 @@ export function ExpenseList() {
               <p className="text-sm opacity-90">{currentMonthLabel}支出</p>
               <TrendingDown className="w-4 h-4 opacity-80" />
             </div>
-            <p className="text-3xl font-bold tracking-tight">{formatCurrency(stats.monthlyExpense)}</p>
+            <p className="text-3xl font-bold tracking-tight">{formatCurrency(filteredTotal)}</p>
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="bg-white/10 rounded-xl p-3">
-                <p className="text-xs opacity-80 mb-1">日均支出</p>
+                <p className="text-xs opacity-80 mb-1">{isAll ? '本月日均' : '日均支出'}</p>
                 <p className="text-base font-semibold">{formatCurrency(averageDaily)}</p>
               </div>
               <div className="bg-white/10 rounded-xl p-3">
-                <p className="text-xs opacity-80 mb-1">本月笔数</p>
-                <p className="text-base font-semibold">{currentMonthExpenses.length} 笔</p>
+                <p className="text-xs opacity-80 mb-1">{isAll ? '总笔数' : '本月笔数'}</p>
+                <p className="text-base font-semibold">{filteredExpenses.length} 笔</p>
               </div>
             </div>
           </div>
 
-          {currentMonthExpenses.length > 0 && (
+          {pieChartData.length > 0 && (
             <ExpensePieChart data={pieChartData} title={`${currentMonthLabel}标签分布`} />
           )}
 
