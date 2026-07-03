@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, TrendingDown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Plus, TrendingDown, ChevronLeft, ChevronRight, Calendar, Tags } from 'lucide-react';
 import dayjs from 'dayjs';
 import { useExpenseStore } from '../hooks/useExpenses';
 import { ExpenseItem } from '../components/ExpenseItem';
 import { ExpensePieChart } from '../components/ExpensePieChart';
 import { calculateExpenseStatistics, getTagExpenseDistribution, formatCurrency } from '../utils/calculations';
-import { Expense } from '../types';
+import { Expense, ExpenseTag } from '../types';
 
 interface GroupedExpenses {
   label: string;
@@ -18,6 +18,7 @@ export function ExpenseList() {
   const navigate = useNavigate();
   const { expenses, tags, loadExpenses, loadTags, deleteExpense, getTagById } = useExpenseStore();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => dayjs().format('YYYY-MM')); // 'all' 表示全部
+  const [selectedTagId, setSelectedTagId] = useState<string>('all'); // 'all' 表示全部标签
 
   useEffect(() => {
     loadExpenses();
@@ -26,15 +27,23 @@ export function ExpenseList() {
 
   const stats = useMemo(() => calculateExpenseStatistics(expenses), [expenses]);
 
-  // 根据选中的月份过滤支出
+  // 根据选中的月份和标签过滤支出
   const filteredExpenses = useMemo(() => {
-    if (selectedMonth === 'all') return expenses;
-    return expenses.filter((e) => dayjs(e.date).format('YYYY-MM') === selectedMonth);
-  }, [expenses, selectedMonth]);
+    let result = expenses;
+    if (selectedMonth !== 'all') {
+      result = result.filter((e) => dayjs(e.date).format('YYYY-MM') === selectedMonth);
+    }
+    if (selectedTagId !== 'all') {
+      result = result.filter((e) => e.tagId === selectedTagId);
+    }
+    return result;
+  }, [expenses, selectedMonth, selectedTagId]);
 
   const isAll = selectedMonth === 'all';
   const isCurrentMonth = selectedMonth === dayjs().format('YYYY-MM');
   const currentMonthLabel = isAll ? '全部时间' : dayjs(selectedMonth + '-01').format('YYYY年M月');
+
+  const selectedTag = selectedTagId === 'all' ? null : tags.find((t) => t.id === selectedTagId);
 
   const pieChartData = useMemo(() => getTagExpenseDistribution(filteredExpenses), [filteredExpenses]);
 
@@ -170,6 +179,48 @@ export function ExpenseList() {
         </div>
       )}
 
+      {/* 标签筛选器 */}
+      {hasAnyExpense && tags.length > 0 && (
+        <div className="bg-white px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Tags className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-500">筛选标签</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedTagId('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                selectedTagId === 'all'
+                  ? 'bg-[#1E3A5F] text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              全部标签
+            </button>
+            {tags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setSelectedTagId(tag.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${
+                  selectedTagId === tag.id
+                    ? 'text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                style={{
+                  backgroundColor: selectedTagId === tag.id ? tag.color : undefined,
+                }}
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: selectedTagId === tag.id ? 'rgba(255,255,255,0.8)' : tag.color }}
+                />
+                {tag.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!hasAnyExpense ? (
         <div className="text-center py-12 px-4">
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[#4A90D9] bg-opacity-10 flex items-center justify-center">
@@ -189,20 +240,33 @@ export function ExpenseList() {
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
             <Calendar className="w-10 h-10 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-[#2C3E50] mb-2">{currentMonthLabel}暂无支出</h3>
-          <p className="text-sm text-gray-500 mb-4">切换到其他月份查看记录</p>
+          <h3 className="text-lg font-semibold text-[#2C3E50] mb-2">
+            {selectedTag
+              ? `${currentMonthLabel} · ${selectedTag.name} 暂无支出`
+              : `${currentMonthLabel}暂无支出`
+            }
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">切换月份或标签查看记录</p>
           <button
-            onClick={() => setSelectedMonth(dayjs().format('YYYY-MM'))}
+            onClick={() => {
+              setSelectedMonth(dayjs().format('YYYY-MM'));
+              setSelectedTagId('all');
+            }}
             className="px-6 py-2.5 bg-[#4A90D9] text-white rounded-xl font-medium text-sm"
           >
-            回到当月
+            重置筛选
           </button>
         </div>
       ) : (
         <div className="px-4 py-4 space-y-4">
           <div className="bg-gradient-to-br from-[#1E3A5F] to-[#4A90D9] rounded-2xl p-4 text-white shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm opacity-90">{currentMonthLabel}支出</p>
+              <p className="text-sm opacity-90">
+                {selectedTag
+                  ? `${currentMonthLabel} · ${selectedTag.name}支出`
+                  : `${currentMonthLabel}支出`
+                }
+              </p>
               <TrendingDown className="w-4 h-4 opacity-80" />
             </div>
             <p className="text-3xl font-bold tracking-tight">{formatCurrency(filteredTotal)}</p>
