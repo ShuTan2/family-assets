@@ -8,12 +8,7 @@ interface StockStore {
   isLoading: boolean;
   lastUpdate: string;
   fetchMarketData: () => Promise<void>;
-  fetchIndices: () => Promise<void>;
-  fetchHotStocks: () => Promise<void>;
-  fetchNews: () => Promise<void>;
 }
-
-const isDevelopment = process.env.NODE_ENV === 'development';
 
 const mockIndices: StockIndex[] = [
   { name: '上证指数', code: 'sh000001', price: 3100.00, change: 15.23, changePercent: 0.49 },
@@ -43,131 +38,14 @@ const mockNews: MarketNews[] = [
   { id: '7', title: '房地产政策暖风频吹，板块强势反弹', source: '界面新闻', time: '1小时前', url: 'https://finance.sina.com.cn/stock/' },
 ];
 
-const loadScript = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = url;
-    script.onload = () => {
-      document.head.removeChild(script);
-      resolve('loaded');
-    };
-    script.onerror = () => {
-      document.head.removeChild(script);
-      reject(new Error('Script load failed'));
-    };
-    document.head.appendChild(script);
-  });
-};
-
 export const useStockStore = create<StockStore>((set) => ({
   indices: mockIndices,
   hotStocks: mockHotStocks,
   news: mockNews,
   isLoading: false,
-  lastUpdate: '',
+  lastUpdate: new Date().toLocaleTimeString('zh-CN'),
 
   fetchMarketData: async () => {
-    if (!isDevelopment) return;
-    
-    set({ isLoading: true });
-    try {
-      await Promise.allSettled([
-        useStockStore.getState().fetchIndices(),
-        useStockStore.getState().fetchHotStocks(),
-        useStockStore.getState().fetchNews(),
-      ]);
-      set({ lastUpdate: new Date().toLocaleTimeString('zh-CN') });
-    } catch (error) {
-      console.error('Failed to fetch market data:', error);
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  fetchIndices: async () => {
-    try {
-      await loadScript('/api/sina/list=sh000001,sz399001,sh000300,sz399006');
-      
-      const indices: StockIndex[] = [];
-      const indexMap: Record<string, string> = {
-        'sh000001': '上证指数',
-        'sz399001': '深证成指',
-        'sh000300': '沪深300',
-        'sz399006': '创业板指',
-      };
-
-      Object.keys(indexMap).forEach((code) => {
-        const variableName = `hq_str_${code}`;
-        const dataStr = (window as any)[variableName];
-        if (dataStr) {
-          const data = dataStr.split(',');
-          if (data.length >= 5) {
-            indices.push({
-              name: indexMap[code] || code,
-              code,
-              price: parseFloat(data[3]) || 0,
-              change: parseFloat(data[4]) || 0,
-              changePercent: parseFloat(data[5]) || 0,
-              volume: data[8] || undefined,
-            });
-          }
-        }
-      });
-
-      if (indices.length > 0) {
-        set({ indices });
-      } else {
-        throw new Error('No data');
-      }
-    } catch (error) {
-      console.error('Failed to fetch indices:', error);
-    }
-  },
-
-  fetchHotStocks: async () => {
-    try {
-      const callbackName = `eastmoney_hot_stocks_${Date.now()}`;
-      await loadScript(`/api/stock/api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:0+t:80,m:1+t:2,m:1+t:23&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&cb=${callbackName}`);
-
-      const json = (window as any)[callbackName];
-      if (json && json.data && json.data.diff) {
-        const stocks: StockInfo[] = json.data.diff.map((item: any) => ({
-          name: item.f14 || '',
-          code: item.f12 || '',
-          price: parseFloat(item.f2) || 0,
-          change: parseFloat(item.f4) || 0,
-          changePercent: parseFloat(item.f3) || 0,
-          open: parseFloat(item.f15) || undefined,
-          high: parseFloat(item.f16) || undefined,
-          low: parseFloat(item.f17) || undefined,
-          volume: item.f5 ? (item.f5 / 10000).toFixed(1) + '万' : undefined,
-          turnover: item.f6 ? (item.f6 / 10000).toFixed(2) + '万' : undefined,
-        }));
-        set({ hotStocks: stocks.slice(0, 10) });
-      }
-      delete (window as any)[callbackName];
-    } catch (error) {
-      console.error('Failed to fetch hot stocks:', error);
-    }
-  },
-
-  fetchNews: async () => {
-    try {
-      const response = await fetch('/api/sina/news/api/roll/get?pageid=153&lid=2516&num=15');
-      const json = await response.json();
-      
-      if (json && json.result && json.result.data) {
-        const newsList: MarketNews[] = json.result.data.map((item: any, index: number) => ({
-          id: item.id || String(index),
-          title: item.title || '',
-          source: item.source || '新浪财经',
-          time: item.intro ? item.intro : (item.create_time ? new Date(item.create_time * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''),
-          url: item.url || `https://finance.sina.com.cn`,
-        }));
-        set({ news: newsList.slice(0, 15) });
-      }
-    } catch (error) {
-      console.error('Failed to fetch news:', error);
-    }
+    set({ lastUpdate: new Date().toLocaleTimeString('zh-CN') });
   },
 }));
