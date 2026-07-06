@@ -174,9 +174,14 @@ export function StockNews() {
       ) : (
         <div className="px-4 mt-4 space-y-3">
           {news.map((item) => (
-            <div
+            <button
               key={item.id}
-              className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+              onClick={() => {
+                if (item.url && item.url !== '#') {
+                  window.open(item.url, '_blank', 'noopener,noreferrer');
+                }
+              }}
+              className="w-full bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:border-[#4A90D9] transition-all relative text-left"
             >
               <h3 className="text-sm font-medium text-[#2C3E50] leading-relaxed mb-2">
                 {item.title}
@@ -191,8 +196,10 @@ export function StockNews() {
                   {item.time}
                 </span>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 absolute right-4 top-1/2 -translate-y-1/2" />
-            </div>
+              <ChevronRight className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${
+                item.url && item.url !== '#' ? 'text-[#4A90D9]' : 'text-gray-300'
+              }`} />
+            </button>
           ))}
         </div>
       )}
