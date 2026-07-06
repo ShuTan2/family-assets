@@ -37,6 +37,11 @@ export interface GoldPrice {
   unit: string;
 }
 
+export interface GoldPrices {
+  domestic: GoldPrice;
+  international: GoldPrice;
+}
+
 export interface MarketData {
   indices: StockIndex[];
   hotStocks: StockInfo[];

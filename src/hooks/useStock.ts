@@ -1,7 +1,29 @@
 import { create } from 'zustand';
 import { StockIndex, StockInfo, MarketNews, GoldPrice } from '../types/stock';
 
-const JUHE_API_KEY = '68465a756f087dd03198ed764d44641e';
+const JUHE_API_KEY_STORAGE_KEY = 'family-assets:juhe-api-key';
+
+function getJuheApiKey(): string {
+  try {
+    return localStorage.getItem(JUHE_API_KEY_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setJuheApiKey(key: string): void {
+  try {
+    localStorage.setItem(JUHE_API_KEY_STORAGE_KEY, key);
+  } catch {
+  }
+}
+
+export function clearJuheApiKey(): void {
+  try {
+    localStorage.removeItem(JUHE_API_KEY_STORAGE_KEY);
+  } catch {
+  }
+}
 
 interface StockStore {
   indices: StockIndex[];
@@ -44,9 +66,9 @@ const mockNews: MarketNews[] = [
 
 const mockGoldPrice: GoldPrice = {
   name: '黄金(Au99.99)',
-  price: 428.50,
-  change: 2.58,
-  changePercent: 0.61,
+  price: 907.5,
+  change: -3.48,
+  changePercent: -0.38,
   unit: '元/克',
 };
 
@@ -71,16 +93,61 @@ export const useStockStore = create<StockStore>((set, get) => ({
   },
 
   fetchGoldPrice: async () => {
+    const apiKey = getJuheApiKey();
+    if (!apiKey) {
+      return;
+    }
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(
-        `https://web.juhe.cn:8080/finance/gold/shgold?key=${JUHE_API_KEY}&v=1`
+        `/api/juhe/finance/gold/shgold?key=${apiKey}&v=1`,
+        { signal: controller.signal }
       );
-      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`Gold price API HTTP error: ${response.status}`);
+        return;
+      }
+
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        console.warn('Gold price API returned empty response');
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.warn('Gold price API returned invalid JSON:', text.substring(0, 200));
+        return;
+      }
 
       if (data.resultcode === '200' && data.result && data.result.length > 0) {
-        const goldItem = data.result.find((item: any) =>
-          item.variety && item.variety.includes('Au99.99')
-        ) || data.result[0];
+        const resultItem = data.result[0];
+        let goldItem: any = null;
+
+        for (const key of Object.keys(resultItem)) {
+          const item = resultItem[key];
+          if (item && item.variety && item.variety.includes('Au99.99')) {
+            goldItem = item;
+            break;
+          }
+        }
+
+        if (!goldItem) {
+          for (const key of Object.keys(resultItem)) {
+            const item = resultItem[key];
+            if (item && item.variety) {
+              goldItem = item;
+              break;
+            }
+          }
+        }
 
         if (goldItem) {
           const price = parseFloat(goldItem.latestpri) || 0;
@@ -102,7 +169,11 @@ export const useStockStore = create<StockStore>((set, get) => ({
         console.warn('Gold price API error:', data.reason || data.resultcode);
       }
     } catch (error) {
-      console.error('Failed to fetch gold price:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('Gold price API request timeout');
+      } else {
+        console.error('Failed to fetch gold price:', error);
+      }
     }
   },
 }));

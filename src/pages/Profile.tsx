@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen, Landmark, Wallet, Tags } from 'lucide-react';
+import { User, Settings, HelpCircle, Download, Upload, Trash2, Info, X, Copy, Check, FileText, FolderOpen, Landmark, Wallet, Tags, Key, AlertTriangle } from 'lucide-react';
 import { useDepositStore } from '../hooks/useDeposits';
 import { useExpenseStore } from '../hooks/useExpenses';
 import { formatCurrency, formatCurrencyCompact } from '../utils/calculations';
+import { setJuheApiKey, clearJuheApiKey, useStockStore } from '../hooks/useStock';
 
 const DEPOSITS_KEY = 'family_assets_deposits';
 const EXPENSES_KEY = 'family_assets_expenses';
@@ -11,7 +12,9 @@ const EXPENSE_TAGS_KEY = 'family_assets_expense_tags';
 export function Profile() {
   const { deposits, loadDeposits, getStatistics } = useDepositStore();
   const { expenses, tags, loadExpenses, loadTags } = useExpenseStore();
+  const { fetchMarketData } = useStockStore();
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [exportInfo, setExportInfo] = useState<{
     filename: string;
     content: string;
@@ -21,6 +24,8 @@ export function Profile() {
     tagCount: number;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   const stats = getStatistics();
   const totalAmount = stats.totalAssets;
@@ -160,7 +165,7 @@ export function Profile() {
   const menuItems = [
     { icon: Download, label: '导出数据', action: handleExportData, color: 'text-[#4A90D9]' },
     { icon: Upload, label: '导入数据', action: handleImportData, color: 'text-[#27AE60]' },
-    { icon: Settings, label: '设置', action: () => alert('设置功能开发中'), color: 'text-[#9B59B6]' },
+    { icon: Settings, label: '设置', action: () => setShowSettingsModal(true), color: 'text-[#9B59B6]' },
     { icon: HelpCircle, label: '帮助与反馈', action: () => alert('帮助功能开发中'), color: 'text-[#3498DB]' },
     { icon: Info, label: '关于我们', action: () => alert('家庭资产记账 v1.0'), color: 'text-[#1E3A5F]' },
   ];
@@ -407,6 +412,103 @@ export function Profile() {
               >
                 <Download className="w-4 h-4" />
                 <span>重新下载</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-[#9B59B6] bg-opacity-10 flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-[#9B59B6]" />
+                </div>
+                <h3 className="text-base font-semibold text-[#2C3E50]">设置</h3>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 overflow-y-auto flex-1 space-y-5">
+              <div>
+                <h4 className="text-sm font-semibold text-[#2C3E50] mb-3 flex items-center gap-1.5">
+                  <Key className="w-4 h-4 text-[#D4AF37]" />
+                  黄金价格 API Key
+                </h4>
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                  输入聚合数据的 API Key 以获取实时黄金价格。Key 仅保存在您的本地浏览器中，不会上传到任何服务器。
+                </p>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="请输入聚合数据 API Key"
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#9B59B6] focus:border-transparent"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (apiKeyInput.trim()) {
+                          setJuheApiKey(apiKeyInput.trim());
+                          setApiKeySaved(true);
+                          fetchMarketData();
+                          setTimeout(() => setApiKeySaved(false), 2000);
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#9B59B6] hover:bg-[#8E44AD] text-white rounded-xl text-sm font-medium transition-colors"
+                    >
+                      {apiKeySaved ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>已保存</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>保存</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        clearJuheApiKey();
+                        setApiKeyInput('');
+                      }}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#E74C3C] rounded-xl text-sm font-medium transition-colors"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#FEF9E7] border border-[#F9E79F] rounded-xl p-3">
+                <div className="flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#F39C12] flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-[#7D6608] leading-relaxed">
+                    <p className="font-medium mb-1">温馨提示</p>
+                    <p>• 没有 API Key 时，黄金价格显示为示例数据</p>
+                    <p>• 免费版每天有调用次数限制（约50次/天）</p>
+                    <p>• 请勿将您的 API Key 分享给他人</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-[#2C3E50] rounded-xl text-sm font-medium transition-colors"
+              >
+                关闭
               </button>
             </div>
           </div>

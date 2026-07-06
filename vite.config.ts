@@ -9,6 +9,7 @@ export default defineConfig({
     sourcemap: 'hidden',
   },
   server: {
+    host: '0.0.0.0',
     proxy: {
       '/api/sina': {
         target: 'https://hq.sinajs.cn',
@@ -24,6 +25,11 @@ export default defineConfig({
         target: 'https://push2.eastmoney.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/stock/, ''),
+      },
+      '/api/juhe': {
+        target: 'https://web.juhe.cn',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/juhe/, ''),
       },
     },
   },

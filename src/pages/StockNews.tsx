@@ -1,15 +1,28 @@
 import { useEffect, useState, useRef } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Clock, ChevronRight, Sparkles } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Clock, ChevronRight, Sparkles, Info } from 'lucide-react';
 import { useStockStore } from '../hooks/useStock';
+
+const JUHE_API_KEY_STORAGE_KEY = 'family-assets:juhe-api-key';
+
+function hasApiKey(): boolean {
+  try {
+    return !!localStorage.getItem(JUHE_API_KEY_STORAGE_KEY);
+  } catch {
+    return false;
+  }
+}
 
 export function StockNews() {
   const { indices, hotStocks, news, goldPrice, isLoading, lastUpdate, fetchMarketData } = useStockStore();
   const [activeTab, setActiveTab] = useState<'market' | 'news'>('market');
   const autoRefreshRef = useRef<number | null>(null);
+  const [hasGoldApiKey, setHasGoldApiKey] = useState(hasApiKey());
 
   useEffect(() => {
+    setHasGoldApiKey(hasApiKey());
     fetchMarketData();
     autoRefreshRef.current = window.setInterval(() => {
+      setHasGoldApiKey(hasApiKey());
       fetchMarketData();
     }, 60 * 60 * 1000);
 
@@ -134,9 +147,17 @@ export function StockNews() {
           </div>
 
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-              黄金价格
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                黄金价格
+              </span>
+              {!hasGoldApiKey && (
+                <span className="text-xs text-gray-400 flex items-center gap-1 font-normal">
+                  <Info className="w-3 h-3" />
+                  示例数据
+                </span>
+              )}
             </h2>
             <div
               className="bg-gradient-to-br rounded-xl p-4"
