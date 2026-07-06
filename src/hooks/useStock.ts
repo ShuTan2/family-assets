@@ -143,9 +143,10 @@ export const useStockStore = create<StockStore>((set) => ({
 
   fetchNews: async () => {
     try {
-      const response = await fetch('https://api.jrj.com.cn/apis/index/getNewsList?pageNum=1&pageSize=10&columnId=13403');
-      const json = await response.json();
-      
+      const callbackName = `jrj_news_${Date.now()}`;
+      await loadScript(`https://api.jrj.com.cn/apis/index/getNewsList?pageNum=1&pageSize=15&columnId=13403&cb=${callbackName}`);
+
+      const json = (window as any)[callbackName];
       if (json && json.data && json.data.list) {
         const newsList: MarketNews[] = json.data.list.map((item: any) => ({
           id: item.id || '',
@@ -158,17 +159,18 @@ export const useStockStore = create<StockStore>((set) => ({
       } else {
         throw new Error('No data');
       }
+      delete (window as any)[callbackName];
     } catch (error) {
       console.error('Failed to fetch news:', error);
       set({
         news: [
-          { id: '1', title: '央行宣布下调存款准备金率0.25个百分点', source: '财经头条', time: '刚刚', url: '#' },
-          { id: '2', title: '新能源板块集体走强，多股涨停', source: '证券时报', time: '10分钟前', url: '#' },
-          { id: '3', title: 'A股三大指数高开低走，市场情绪谨慎', source: '上海证券报', time: '25分钟前', url: '#' },
-          { id: '4', title: '科技股迎来政策利好，半导体板块发力', source: '中国证券网', time: '35分钟前', url: '#' },
-          { id: '5', title: '北向资金净流入超50亿，外资持续加仓', source: '每日经济新闻', time: '45分钟前', url: '#' },
-          { id: '6', title: '医药板块异动，创新药概念领涨', source: '第一财经', time: '1小时前', url: '#' },
-          { id: '7', title: '房地产政策暖风频吹，板块强势反弹', source: '界面新闻', time: '1小时前', url: '#' },
+          { id: '1', title: '央行宣布下调存款准备金率0.25个百分点', source: '财经头条', time: '刚刚', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '2', title: '新能源板块集体走强，多股涨停', source: '证券时报', time: '10分钟前', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '3', title: 'A股三大指数高开低走，市场情绪谨慎', source: '上海证券报', time: '25分钟前', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '4', title: '科技股迎来政策利好，半导体板块发力', source: '中国证券网', time: '35分钟前', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '5', title: '北向资金净流入超50亿，外资持续加仓', source: '每日经济新闻', time: '45分钟前', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '6', title: '医药板块异动，创新药概念领涨', source: '第一财经', time: '1小时前', url: 'https://finance.sina.com.cn/stock/' },
+          { id: '7', title: '房地产政策暖风频吹，板块强势反弹', source: '界面新闻', time: '1小时前', url: 'https://finance.sina.com.cn/stock/' },
         ],
       });
     }
