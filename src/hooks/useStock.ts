@@ -143,17 +143,17 @@ export const useStockStore = create<StockStore>((set) => ({
 
   fetchNews: async () => {
     try {
-      const callbackName = `jrj_news_${Date.now()}`;
-      await loadScript(`https://api.jrj.com.cn/apis/index/getNewsList?pageNum=1&pageSize=15&columnId=13403&cb=${callbackName}`);
+      const callbackName = `sina_news_${Date.now()}`;
+      await loadScript(`https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=15&callback=${callbackName}`);
 
       const json = (window as any)[callbackName];
-      if (json && json.data && json.data.list) {
-        const newsList: MarketNews[] = json.data.list.map((item: any) => ({
-          id: item.id || '',
+      if (json && json.result && json.result.data) {
+        const newsList: MarketNews[] = json.result.data.map((item: any, index: number) => ({
+          id: item.id || String(index),
           title: item.title || '',
-          source: item.source || '财经新闻',
-          time: item.publishTime ? new Date(item.publishTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
-          url: item.url || '',
+          source: item.source || '新浪财经',
+          time: item.intro ? item.intro : (item.create_time ? new Date(item.create_time * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''),
+          url: item.url || `https://finance.sina.com.cn`,
         }));
         set({ news: newsList.slice(0, 15) });
       } else {
