@@ -15,6 +15,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/sina/, ''),
       },
+      '/api/sina/news': {
+        target: 'https://feed.mix.sina.com.cn',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/sina\/news/, ''),
+      },
       '/api/stock': {
         target: 'https://push2.eastmoney.com',
         changeOrigin: true,
