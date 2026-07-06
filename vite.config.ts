@@ -3,11 +3,24 @@ import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
-// https://vite.dev/config/
 export default defineConfig({
   base: '/family-assets/',
   build: {
     sourcemap: 'hidden',
+  },
+  server: {
+    proxy: {
+      '/api/sina': {
+        target: 'https://hq.sinajs.cn',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/sina/, ''),
+      },
+      '/api/stock': {
+        target: 'https://push2.eastmoney.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/stock/, ''),
+      },
+    },
   },
   plugins: [
     react({

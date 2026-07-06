@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, List, TrendingDown, User } from 'lucide-react';
+import { Home, List, TrendingDown, Newspaper, User } from 'lucide-react';
 
 export function TabBar() {
   const location = useLocation();
@@ -9,6 +9,7 @@ export function TabBar() {
     { path: '/', icon: Home, label: '首页' },
     { path: '/deposits', icon: List, label: '存款' },
     { path: '/expenses', icon: TrendingDown, label: '支出' },
+    { path: '/news', icon: Newspaper, label: '资讯' },
     { path: '/profile', icon: User, label: '我的' },
   ];
 

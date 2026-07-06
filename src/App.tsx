@@ -6,6 +6,7 @@ import { ExpenseList } from './pages/ExpenseList';
 import { AddEditExpense } from './pages/AddEditExpense';
 import { Profile } from './pages/Profile';
 import { Statistics } from './pages/Statistics';
+import { StockNews } from './pages/StockNews';
 import { TabBar } from './components/TabBar';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/edit-expense/:id" element={<AddEditExpense />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/statistics" element={<Statistics />} />
+          <Route path="/news" element={<StockNews />} />
         </Routes>
         <TabBar />
       </div>
