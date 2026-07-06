@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Clock, ChevronRight, Sparkles } from 'lucide-react';
 import { useStockStore } from '../hooks/useStock';
 
 export function StockNews() {
   const { indices, hotStocks, news, goldPrice, isLoading, lastUpdate, fetchMarketData } = useStockStore();
   const [activeTab, setActiveTab] = useState<'market' | 'news'>('market');
+  const autoRefreshRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetchMarketData();
+    autoRefreshRef.current = window.setInterval(() => {
+      fetchMarketData();
+    }, 60 * 60 * 1000);
+
+    return () => {
+      if (autoRefreshRef.current) {
+        clearInterval(autoRefreshRef.current);
+      }
+    };
   }, [fetchMarketData]);
 
   const formatPrice = (price: number) => {

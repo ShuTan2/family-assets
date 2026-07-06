@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { StockIndex, StockInfo, MarketNews, GoldPrice } from '../types/stock';
 
+const JUHE_API_KEY = '68465a756f087dd03198ed764d44641e';
+
 interface StockStore {
   indices: StockIndex[];
   hotStocks: StockInfo[];
@@ -9,6 +11,7 @@ interface StockStore {
   isLoading: boolean;
   lastUpdate: string;
   fetchMarketData: () => Promise<void>;
+  fetchGoldPrice: () => Promise<void>;
 }
 
 const mockIndices: StockIndex[] = [
@@ -40,14 +43,14 @@ const mockNews: MarketNews[] = [
 ];
 
 const mockGoldPrice: GoldPrice = {
-  name: '黄金',
-  price: 4285.50,
-  change: 25.80,
+  name: '黄金(Au99.99)',
+  price: 428.50,
+  change: 2.58,
   changePercent: 0.61,
   unit: '元/克',
 };
 
-export const useStockStore = create<StockStore>((set) => ({
+export const useStockStore = create<StockStore>((set, get) => ({
   indices: mockIndices,
   hotStocks: mockHotStocks,
   news: mockNews,
@@ -56,6 +59,50 @@ export const useStockStore = create<StockStore>((set) => ({
   lastUpdate: new Date().toLocaleTimeString('zh-CN'),
 
   fetchMarketData: async () => {
-    set({ lastUpdate: new Date().toLocaleTimeString('zh-CN') });
+    set({ isLoading: true });
+    try {
+      await get().fetchGoldPrice();
+      set({ lastUpdate: new Date().toLocaleTimeString('zh-CN') });
+    } catch (error) {
+      console.error('Failed to fetch market data:', error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  fetchGoldPrice: async () => {
+    try {
+      const response = await fetch(
+        `https://web.juhe.cn:8080/finance/gold/shgold?key=${JUHE_API_KEY}&v=1`
+      );
+      const data = await response.json();
+
+      if (data.resultcode === '200' && data.result && data.result.length > 0) {
+        const goldItem = data.result.find((item: any) =>
+          item.variety && item.variety.includes('Au99.99')
+        ) || data.result[0];
+
+        if (goldItem) {
+          const price = parseFloat(goldItem.latestpri) || 0;
+          const yesPrice = parseFloat(goldItem.yespri) || 0;
+          const change = parseFloat((price - yesPrice).toFixed(2));
+          const changePercent = yesPrice > 0 ? parseFloat(((change / yesPrice) * 100).toFixed(2)) : 0;
+
+          set({
+            goldPrice: {
+              name: goldItem.variety || '黄金',
+              price,
+              change,
+              changePercent,
+              unit: '元/克',
+            },
+          });
+        }
+      } else {
+        console.warn('Gold price API error:', data.reason || data.resultcode);
+      }
+    } catch (error) {
+      console.error('Failed to fetch gold price:', error);
+    }
   },
 }));
