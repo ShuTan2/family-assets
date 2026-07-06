@@ -3,7 +3,7 @@ import { RefreshCw, TrendingUp, TrendingDown, Newspaper, Clock, ChevronRight, Sp
 import { useStockStore } from '../hooks/useStock';
 
 export function StockNews() {
-  const { indices, hotStocks, news, isLoading, lastUpdate, fetchMarketData } = useStockStore();
+  const { indices, hotStocks, news, goldPrice, isLoading, lastUpdate, fetchMarketData } = useStockStore();
   const [activeTab, setActiveTab] = useState<'market' | 'news'>('market');
 
   useEffect(() => {
@@ -120,6 +120,44 @@ export function StockNews() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+              黄金价格
+            </h2>
+            <div
+              className="bg-gradient-to-br rounded-xl p-4"
+              style={{
+                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.05))',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">{goldPrice.name}</p>
+                  <p className="text-2xl font-bold text-[#2C3E50]">
+                    {formatPrice(goldPrice.price)}
+                    <span className="text-xs text-gray-400 font-normal ml-1">{goldPrice.unit}</span>
+                  </p>
+                </div>
+                <div className={`flex flex-col items-end ${
+                  goldPrice.change >= 0 ? 'text-red-500' : 'text-green-500'
+                }`}>
+                  {goldPrice.change >= 0 ? (
+                    <TrendingUp className="w-5 h-5" />
+                  ) : (
+                    <TrendingDown className="w-5 h-5" />
+                  )}
+                  <p className="text-sm font-bold">
+                    {goldPrice.change >= 0 ? '+' : ''}{formatPrice(goldPrice.change)}
+                  </p>
+                  <p className="text-xs">
+                    ({goldPrice.change >= 0 ? '+' : ''}{goldPrice.changePercent.toFixed(2)}%)
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

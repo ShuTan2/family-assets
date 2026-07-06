@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { StockIndex, StockInfo, MarketNews } from '../types/stock';
+import { StockIndex, StockInfo, MarketNews, GoldPrice } from '../types/stock';
 
 interface StockStore {
   indices: StockIndex[];
   hotStocks: StockInfo[];
   news: MarketNews[];
+  goldPrice: GoldPrice;
   isLoading: boolean;
   lastUpdate: string;
   fetchMarketData: () => Promise<void>;
@@ -38,10 +39,19 @@ const mockNews: MarketNews[] = [
   { id: '7', title: '房地产政策暖风频吹，板块强势反弹', source: '界面新闻', time: '1小时前', url: 'https://finance.sina.com.cn/stock/' },
 ];
 
+const mockGoldPrice: GoldPrice = {
+  name: '黄金',
+  price: 4285.50,
+  change: 25.80,
+  changePercent: 0.61,
+  unit: '元/克',
+};
+
 export const useStockStore = create<StockStore>((set) => ({
   indices: mockIndices,
   hotStocks: mockHotStocks,
   news: mockNews,
+  goldPrice: mockGoldPrice,
   isLoading: false,
   lastUpdate: new Date().toLocaleTimeString('zh-CN'),
 

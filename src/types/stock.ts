@@ -29,9 +29,18 @@ export interface MarketNews {
   summary?: string;
 }
 
+export interface GoldPrice {
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  unit: string;
+}
+
 export interface MarketData {
   indices: StockIndex[];
   hotStocks: StockInfo[];
   news: MarketNews[];
+  goldPrice: GoldPrice;
   lastUpdate: string;
 }
