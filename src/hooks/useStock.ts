@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { StockIndex, StockInfo, MarketNews, MarketData } from '../types/stock';
+import { StockIndex, StockInfo, MarketNews } from '../types/stock';
 
 interface StockStore {
   indices: StockIndex[];
@@ -12,6 +12,22 @@ interface StockStore {
   fetchHotStocks: () => Promise<void>;
   fetchNews: () => Promise<void>;
 }
+
+const loadScript = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => {
+      document.head.removeChild(script);
+      resolve('loaded');
+    };
+    script.onerror = () => {
+      document.head.removeChild(script);
+      reject(new Error('Script load failed'));
+    };
+    document.head.appendChild(script);
+  });
+};
 
 export const useStockStore = create<StockStore>((set) => ({
   indices: [],
@@ -38,11 +54,9 @@ export const useStockStore = create<StockStore>((set) => ({
 
   fetchIndices: async () => {
     try {
-      const response = await fetch('/api/sina/?list=sh000001,sz399001,sh000300,sz399006');
-      const text = await response.text();
-      const indices: StockIndex[] = [];
-      const lines = text.split(';');
+      await loadScript('https://hq.sinajs.cn/list=sh000001,sz399001,sh000300,sz399006');
       
+      const indices: StockIndex[] = [];
       const indexMap: Record<string, string> = {
         'sh000001': '上证指数',
         'sz399001': '深证成指',
@@ -50,11 +64,11 @@ export const useStockStore = create<StockStore>((set) => ({
         'sz399006': '创业板指',
       };
 
-      lines.forEach((line) => {
-        const match = line.match(/hq_str_([a-z0-9]+)="([^"]+)"/);
-        if (match) {
-          const code = match[1];
-          const data = match[2].split(',');
+      Object.keys(indexMap).forEach((code) => {
+        const variableName = `hq_str_${code}`;
+        const dataStr = (window as any)[variableName];
+        if (dataStr) {
+          const data = dataStr.split(',');
           if (data.length >= 5) {
             indices.push({
               name: indexMap[code] || code,
@@ -68,7 +82,11 @@ export const useStockStore = create<StockStore>((set) => ({
         }
       });
 
-      set({ indices });
+      if (indices.length > 0) {
+        set({ indices });
+      } else {
+        throw new Error('No data');
+      }
     } catch (error) {
       console.error('Failed to fetch indices:', error);
       set({
@@ -84,28 +102,28 @@ export const useStockStore = create<StockStore>((set) => ({
 
   fetchHotStocks: async () => {
     try {
-      const response = await fetch('/api/stock/api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:0+t:80,m:1+t:2,m:1+t:23&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152');
-      const json = await response.json();
-      const stocks: StockInfo[] = [];
+      const callbackName = `eastmoney_hot_stocks_${Date.now()}`;
+      await loadScript(`https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:13,m:0+t:80,m:1+t:2,m:1+t:23&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&cb=${callbackName}`);
 
-      if (json.data && json.data.diff) {
-        json.data.diff.forEach((item: any) => {
-          stocks.push({
-            name: item.f14 || '',
-            code: item.f12 || '',
-            price: parseFloat(item.f2) || 0,
-            change: parseFloat(item.f4) || 0,
-            changePercent: parseFloat(item.f3) || 0,
-            open: parseFloat(item.f15) || undefined,
-            high: parseFloat(item.f16) || undefined,
-            low: parseFloat(item.f17) || undefined,
-            volume: item.f5 ? (item.f5 / 10000).toFixed(1) + '万' : undefined,
-            turnover: item.f6 ? (item.f6 / 10000).toFixed(2) + '万' : undefined,
-          });
-        });
+      const json = (window as any)[callbackName];
+      if (json && json.data && json.data.diff) {
+        const stocks: StockInfo[] = json.data.diff.map((item: any) => ({
+          name: item.f14 || '',
+          code: item.f12 || '',
+          price: parseFloat(item.f2) || 0,
+          change: parseFloat(item.f4) || 0,
+          changePercent: parseFloat(item.f3) || 0,
+          open: parseFloat(item.f15) || undefined,
+          high: parseFloat(item.f16) || undefined,
+          low: parseFloat(item.f17) || undefined,
+          volume: item.f5 ? (item.f5 / 10000).toFixed(1) + '万' : undefined,
+          turnover: item.f6 ? (item.f6 / 10000).toFixed(2) + '万' : undefined,
+        }));
+        set({ hotStocks: stocks.slice(0, 10) });
+      } else {
+        throw new Error('No data');
       }
-
-      set({ hotStocks: stocks.slice(0, 10) });
+      delete (window as any)[callbackName];
     } catch (error) {
       console.error('Failed to fetch hot stocks:', error);
       set({
@@ -125,24 +143,21 @@ export const useStockStore = create<StockStore>((set) => ({
 
   fetchNews: async () => {
     try {
-      const response = await fetch('/api/stock/api/qt/list/get?param=news&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12');
-      const text = await response.text();
-      const json = JSON.parse(text.replace(/^jsonp1\(/, '').replace(/\)$/, ''));
-      const newsList: MarketNews[] = [];
-
-      if (json.data && json.data.news) {
-        json.data.news.forEach((item: any) => {
-          newsList.push({
-            id: item.id || item.f11 || '',
-            title: item.title || item.f14 || '',
-            source: item.source || item.f15 || '财经新闻',
-            time: item.time || item.f16 || '',
-            url: item.url || item.f17 || '',
-          });
-        });
+      const response = await fetch('https://api.jrj.com.cn/apis/index/getNewsList?pageNum=1&pageSize=10&columnId=13403');
+      const json = await response.json();
+      
+      if (json && json.data && json.data.list) {
+        const newsList: MarketNews[] = json.data.list.map((item: any) => ({
+          id: item.id || '',
+          title: item.title || '',
+          source: item.source || '财经新闻',
+          time: item.publishTime ? new Date(item.publishTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
+          url: item.url || '',
+        }));
+        set({ news: newsList.slice(0, 15) });
+      } else {
+        throw new Error('No data');
       }
-
-      set({ news: newsList.slice(0, 15) });
     } catch (error) {
       console.error('Failed to fetch news:', error);
       set({
