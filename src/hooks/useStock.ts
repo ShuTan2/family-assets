@@ -98,14 +98,16 @@ export const useStockStore = create<StockStore>((set, get) => ({
       return;
     }
 
+    const isDev = import.meta.env.DEV;
+    const apiUrl = isDev
+      ? `/api/juhe/finance/gold/shgold?key=${apiKey}&v=1`
+      : `https://web.juhe.cn/finance/gold/shgold?key=${apiKey}&v=1`;
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(
-        `/api/juhe/finance/gold/shgold?key=${apiKey}&v=1`,
-        { signal: controller.signal }
-      );
+      const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
